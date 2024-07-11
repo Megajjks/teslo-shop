@@ -6,7 +6,7 @@ import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { PaginationDto } from 'src/common/dto/pagination.dto';
 
-import { Product } from './entities/product.entity';
+import { Product, ProductImage } from './entities';
 import { validate as isUUID} from "uuid";
 
 @Injectable()
@@ -16,28 +16,42 @@ export class ProductsService {
 
   constructor(
     @InjectRepository(Product)
-    private readonly productRepository: Repository<Product>
+    private readonly productRepository: Repository<Product>,
+    @InjectRepository(ProductImage)
+    private readonly productImageRepository: Repository<ProductImage>, 
   ){}
 
   async create(createProductDto: CreateProductDto) {
-    
+
     try{
-      const product = this.productRepository.create(createProductDto) //crea la instancia del producto
+      const {images = [], ...productDetails} = createProductDto;
+      const product = this.productRepository.create({
+        ...productDetails, 
+        images: images.map(image => this.productImageRepository.create({ url: image}) )
+      }); //crea la instancia del producto
       await this.productRepository.save(product) // guardo la instancia en la bd
       return product
     }catch(e){
+      console.log(e)
       this.handleDBExceptions(e)
     }
   }
 
-  findAll(paginationDto: PaginationDto) {
+  async findAll(paginationDto: PaginationDto) {
     
     const {limit = 10, offset = 0} = paginationDto
-    return this.productRepository.find({
+    const products = await this.productRepository.find({
       take: limit,
       skip: offset,
-      //Todo relaciones
+      relations:{
+        images:true,
+      }
     });
+
+    return products.map( ({ images, ...rest}) => ({
+      ...rest,
+      images: images.map( img => img.url)
+    }))
   }
 
   async findOne(query: string) {
@@ -47,12 +61,14 @@ export class ProductsService {
       if(isUUID(query)){
         product = await this.productRepository.findOneBy({id: query})
       } else{
-        const queryBuilder = this.productRepository.createQueryBuilder()
+        const queryBuilder = this.productRepository.createQueryBuilder('prod')
         product = await queryBuilder
           .where('title =:title or slug =:slug', {
             title: query,
             slug: query
-          }).getOne()
+          })
+          .leftJoinAndSelect('prod.images', 'prodImages')
+          .getOne()
       }
       if (!product)
         throw new NotFoundException(`Product with not found`)
@@ -62,11 +78,20 @@ export class ProductsService {
     }
   }
 
+  async findOnePlain (query: string) {
+    const { images = [], ...rest} = await this.findOne(query);
+    return{
+      ...rest,
+      images:images.map( image => image.url)
+    }
+  }
+
   async update(id: string, updateProductDto: UpdateProductDto) {
     // procesando el cambio antes de enviar el cambio a la bd
     const product = await this.productRepository.preload({
       id: id,
-      ...updateProductDto
+      ...updateProductDto,
+      images:[]
     })
 
     if(!product) 
