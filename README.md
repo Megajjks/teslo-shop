@@ -46,13 +46,23 @@ http://localhost:3000/api/v2/seed
 
 ## Production Build
 
-1. Crear el archivo `.env.prod`
-2. Llenar las variables de entorno de prod
-3. Crear la nueva imagen
+1. Clonar proyecto
+   `yarn install`
+2. Clonar el archivo `.env.template` y renombrarlo a `.env`
+3. Cambiar las variables de entorno
+4. Levantar la base de datos
 
 ```
-docker compose -f docker-compose.prod.yaml --env-file .env.prod up --build
+docker compose up -d
 ```
+
+5. Ejecutar SEED
+
+```
+http://localhost:3030/api/seed
+```
+
+6. Levantar: `yarn start:dev`
 
 ## Stack usado
 
