@@ -1,6 +1,6 @@
 /* eslint-disable prettier/prettier */
 
 export interface IJwtPayload {
-    email: string;
+    id: string;
     // Others value that you can save in jwt payload
 }
