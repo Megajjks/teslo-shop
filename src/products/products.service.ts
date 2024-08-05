@@ -8,6 +8,7 @@ import { PaginationDto } from 'src/common/dto/pagination.dto';
 
 import { Product, ProductImage } from './entities';
 import { validate as isUUID} from "uuid";
+import { User } from '../auth/entities/user.entity';
 
 @Injectable()
 export class ProductsService {
@@ -22,13 +23,14 @@ export class ProductsService {
     private readonly dataSource: DataSource,
   ){}
 
-  async create(createProductDto: CreateProductDto) {
+  async create(createProductDto: CreateProductDto, user:User) {
 
     try{
       const {images = [], ...productDetails} = createProductDto;
       const product = this.productRepository.create({
         ...productDetails, 
-        images: images.map(image => this.productImageRepository.create({ url: image}) )
+        images: images.map(image => this.productImageRepository.create({ url: image}) ),
+        user,
       }); //crea la instancia del producto
       await this.productRepository.save(product) // guardo la instancia en la bd
       return product
@@ -87,7 +89,7 @@ export class ProductsService {
     }
   }
 
-  async update(id: string, updateProductDto: UpdateProductDto) {
+  async update(id: string, updateProductDto: UpdateProductDto, user:User) {
     const { images, ...toUpdate } = updateProductDto;
     // procesando el cambio antes de enviar el cambio a la bd
     const product = await this.productRepository.preload({
@@ -111,6 +113,9 @@ export class ProductsService {
           image => this.productImageRepository.create({ url: image })
         )
       }
+
+      //add user
+      product.user = user;
       await queryRunner.manager.save( product)
 
       //save the change in the bd
